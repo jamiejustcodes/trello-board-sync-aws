@@ -1,0 +1,47 @@
+{
+  "name": "trello-board-sync-aws",
+  "version": "1.0.0",
+  "description": "Event-driven bidirectional Trello board synchronization engine using AWS Lambda, SQS, and DynamoDB",
+  "main": "dist/handlers/webhookReceiver.js",
+  "scripts": {
+    "dev": "serverless offline",
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "deploy:dev": "serverless deploy --stage dev",
+    "deploy:prod": "serverless deploy --stage prod",
+    "manage:webhooks": "tsx scripts/manage-webhooks.ts"
+  },
+  "keywords": [
+    "aws",
+    "lambda",
+    "serverless",
+    "trello",
+    "sqs",
+    "dynamodb",
+    "event-driven",
+    "webhooks",
+    "sync"
+  ],
+  "author": "Jamie <jamiejustcodes>",
+  "license": "MIT",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.750.0",
+    "@aws-sdk/client-sqs": "^3.750.0",
+    "@aws-sdk/lib-dynamodb": "^3.750.0",
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.147",
+    "@types/node": "^22.13.5",
+    "esbuild": "^0.25.0",
+    "serverless": "^3.39.0",
+    "serverless-esbuild": "^1.54.4",
+    "serverless-offline": "^13.9.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.6"
+  }
+}

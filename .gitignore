@@ -1,0 +1,35 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# serverless & build outputs
+.serverless/
+dist/
+build/
+.webpack/
+.build/
+
+# env files
+.env
+.env.local
+.env.*.local
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs
+*.log
+
+# testing & coverage
+coverage/
+.nyc_output/
+
+# IDE / OS files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json

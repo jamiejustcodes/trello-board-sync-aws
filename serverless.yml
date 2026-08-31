@@ -1,0 +1,123 @@
+service: trello-board-sync-aws
+frameworkVersion: '3'
+
+plugins:
+  - serverless-esbuild
+  - serverless-offline
+
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: node20
+    platform: node
+    concurrency: 10
+  serverless-offline:
+    httpPort: 3000
+    noPrependStageInUrl: true
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-east-1'}
+  memorySize: 256
+  timeout: 10
+  httpApi:
+    cors: true
+  environment:
+    STAGE: ${self:provider.stage}
+    TRELLO_API_KEY: ${env:TRELLO_API_KEY, ''}
+    TRELLO_TOKEN: ${env:TRELLO_TOKEN, ''}
+    TRELLO_WEBHOOK_SECRET: ${env:TRELLO_WEBHOOK_SECRET, ''}
+    BOT_MEMBER_ID: ${env:BOT_MEMBER_ID, ''}
+    SOURCE_BOARD_ID: ${env:SOURCE_BOARD_ID, ''}
+    TARGET_BOARD_ID: ${env:TARGET_BOARD_ID, ''}
+    SYNC_QUEUE_URL: !Ref SyncQueue
+    SYNC_TABLE_NAME: !Ref SyncStoreTable
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - sqs:SendMessage
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
+            - sqs:GetQueueAttributes
+          Resource: !GetAtt SyncQueue.Arn
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Query
+            - dynamodb:Scan
+          Resource: !GetAtt SyncStoreTable.Arn
+
+functions:
+  # Ingestion Endpoint: Receives Trello webhooks, verifies HMAC signature,
+  # responds with fast 200 OK, and enqueues to SQS for async processing.
+  webhookReceiver:
+    handler: src/handlers/webhookReceiver.handler
+    description: Fast-ACK webhook ingest endpoint for Trello board events
+    events:
+      - httpApi:
+          path: /webhook
+          method: post
+      - httpApi:
+          path: /webhook
+          method: head
+
+  # Background Worker: Consumes queued events from SQS, checks DynamoDB
+  # for loop prevention, and synchronizes cards between boards.
+  syncWorker:
+    handler: src/handlers/syncWorker.handler
+    description: Asynchronous SQS consumer executing card synchronization
+    timeout: 30
+    events:
+      - sqs:
+          arn: !GetAtt SyncQueue.Arn
+          batchSize: 5
+          maximumBatchingWindow: 5
+
+resources:
+  Resources:
+    # Dead Letter Queue for failed synchronization jobs
+    SyncDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${self:provider.stage}-dlq
+        MessageRetentionPeriod: 1209600 # 14 days
+
+    # Main buffer queue for incoming webhook events
+    SyncQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${self:provider.stage}-queue
+        VisibilityTimeout: 60
+        MessageRetentionPeriod: 345600 # 4 days
+        RedrivePolicy:
+          deadLetterTargetArn: !GetAtt SyncDLQ.Arn
+          maxReceiveCount: 3
+
+    # DynamoDB state store for card mappings, content hashes, and sync locks
+    SyncStoreTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-${self:provider.stage}-state
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: PK
+            AttributeType: S
+          - AttributeName: SK
+            AttributeType: S
+        KeySchema:
+          - AttributeName: PK
+            KeyType: HASH
+          - AttributeName: SK
+            KeyType: RANGE
+        TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true

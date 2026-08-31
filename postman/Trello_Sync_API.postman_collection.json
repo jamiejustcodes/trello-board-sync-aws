@@ -1,0 +1,139 @@
+{
+  "info": {
+    "_postman_id": "893c52a0-4b31-419b-a320-b8d18408f654",
+    "name": "AWS Serverless Trello Board Sync",
+    "description": "API collection for testing the Trello Board Synchronization AWS Lambda endpoints locally or in the cloud.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "webhookSecret",
+      "value": "test_webhook_secret_key",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Trello Webhook HEAD Verification (Probe)",
+      "request": {
+        "method": "HEAD",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/webhook",
+          "host": ["{{baseUrl}}"],
+          "path": ["webhook"]
+        },
+        "description": "Trello issues a HEAD request when a webhook is first created. Must return 200 OK."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Ingest Card Created Webhook",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "const secret = pm.variables.get('webhookSecret');",
+              "if (secret) {",
+              "    const rawBody = pm.request.body.raw;",
+              "    const callbackUrl = pm.request.url.toString();",
+              "    const hash = CryptoJS.HmacSHA1(rawBody + callbackUrl, secret).toString(CryptoJS.enc.Base64);",
+              "    pm.request.headers.add({ key: 'x-trello-webhook', value: hash });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": {\n    \"id\": \"act_sample_create_001\",\n    \"idMemberCreator\": \"user_human_123\",\n    \"type\": \"createCard\",\n    \"date\": \"2026-09-01T12:00:00.000Z\",\n    \"data\": {\n      \"board\": {\n        \"id\": \"64f_source_board_id\",\n        \"name\": \"Engineering Roadmap\"\n      },\n      \"card\": {\n        \"id\": \"64f_sample_card_001\",\n        \"name\": \"Implement Distributed Tracing\",\n        \"desc\": \"Add OpenTelemetry spans across all microservices\"\n      },\n      \"list\": {\n        \"id\": \"list_todo_001\",\n        \"name\": \"To Do\"\n      }\n    },\n    \"memberCreator\": {\n      \"id\": \"user_human_123\",\n      \"username\": \"lead_dev\",\n      \"fullName\": \"Lead Developer\"\n    }\n  },\n  \"model\": {\n    \"id\": \"64f_source_board_id\",\n    \"name\": \"Engineering Roadmap\",\n    \"desc\": \"\",\n    \"closed\": false,\n    \"idOrganization\": \"\",\n    \"pinned\": false,\n    \"url\": \"https://trello.com/b/sample\",\n    \"shortUrl\": \"https://trello.com/b/sample\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/webhook",
+          "host": ["{{baseUrl}}"],
+          "path": ["webhook"]
+        },
+        "description": "Simulates a user creating a new card on the source board."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Ingest Card Updated Webhook",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "const secret = pm.variables.get('webhookSecret');",
+              "if (secret) {",
+              "    const rawBody = pm.request.body.raw;",
+              "    const callbackUrl = pm.request.url.toString();",
+              "    const hash = CryptoJS.HmacSHA1(rawBody + callbackUrl, secret).toString(CryptoJS.enc.Base64);",
+              "    pm.request.headers.add({ key: 'x-trello-webhook', value: hash });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": {\n    \"id\": \"act_sample_update_002\",\n    \"idMemberCreator\": \"user_human_123\",\n    \"type\": \"updateCard\",\n    \"date\": \"2026-09-01T12:05:00.000Z\",\n    \"data\": {\n      \"board\": {\n        \"id\": \"64f_source_board_id\",\n        \"name\": \"Engineering Roadmap\"\n      },\n      \"card\": {\n        \"id\": \"64f_sample_card_001\",\n        \"name\": \"Implement Distributed Tracing (High Priority)\",\n        \"desc\": \"Add OpenTelemetry spans across all microservices and export to AWS CloudWatch\",\n        \"due\": \"2026-09-15T17:00:00.000Z\",\n        \"dueComplete\": false\n      },\n      \"old\": {\n        \"name\": \"Implement Distributed Tracing\"\n      }\n    },\n    \"memberCreator\": {\n      \"id\": \"user_human_123\",\n      \"username\": \"lead_dev\",\n      \"fullName\": \"Lead Developer\"\n    }\n  },\n  \"model\": {\n    \"id\": \"64f_source_board_id\",\n    \"name\": \"Engineering Roadmap\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/webhook",
+          "host": ["{{baseUrl}}"],
+          "path": ["webhook"]
+        },
+        "description": "Simulates a user updating card title, description, or due date."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Ingest Self-Triggered Bot Webhook (Loop Test)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": {\n    \"id\": \"act_bot_update_003\",\n    \"idMemberCreator\": \"bot_member_id_here\",\n    \"type\": \"updateCard\",\n    \"date\": \"2026-09-01T12:05:05.000Z\",\n    \"data\": {\n      \"board\": {\n        \"id\": \"64f_target_board_id\"\n      },\n      \"card\": {\n        \"id\": \"64f_target_card_001\"\n      }\n    },\n    \"memberCreator\": {\n      \"id\": \"bot_member_id_here\",\n      \"username\": \"sync_bot\"\n    }\n  },\n  \"model\": {\n    \"id\": \"64f_target_board_id\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/webhook",
+          "host": ["{{baseUrl}}"],
+          "path": ["webhook"]
+        },
+        "description": "Tests loop prevention: should be enqueued and skipped cleanly by the worker because creator ID matches bot ID."
+      },
+      "response": []
+    }
+  ]
+}

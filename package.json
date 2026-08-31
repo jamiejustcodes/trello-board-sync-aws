@@ -1,6 +1,7 @@
 {
   "name": "trello-board-sync-aws",
   "version": "1.0.0",
+  "type": "module",
   "description": "Event-driven bidirectional Trello board synchronization engine using AWS Lambda, SQS, and DynamoDB",
   "main": "dist/handlers/webhookReceiver.js",
   "scripts": {
